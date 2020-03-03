@@ -1,26 +1,36 @@
 #!/usr/bin/env bash
 
 CWD=$(pwd)
-VERSION=1.0
+VERSION=1.0.1
 
 function show_help {
   echo "DoDo $VERSION"
   echo "Author: Pavel Kilin <pavel@borodyadka.wtf>"
+  echo ""
   echo "Bugs and suggestions https://github.com/borodyadka/dodo/issues"
   echo ""
   echo "Usage: $0 [<flags>...] <image or path> <command>"
   echo ""
-  echo "Flags"
-  echo "  -h --help — this help"
-  echo "  -V --version — version info"
+  echo "Flags:"
   echo ""
-  echo "All listed flags passing directly to `docker run` command. Any other flags causes an error"
-  exit 0
+  echo "  -h --help       — this help"
+  echo "  -V --version    — version info"
+  echo "  -e --env        — set env var: '-e FOO=BAR'"
+  echo "  -p --publish    — publish container port: '-p 80:80'"
+  echo "  -v --volume     — mount volume: '-v /tmp:/var/lib/data'"
+  echo "  -w --workdir    — set current workdir: '-w /opt/app', default is '/home/dodo'"
+  echo "  -u --user       — set user, '-u 1000:1000', default is '$(id -u):$(id -g)'"
+  echo ""
+  echo "  All listed flags passing directly to 'docker run' command. Any other flags causes an error"
+  echo ""
+  echo "Example:"
+  echo ""
+  echo "  This command will install 'some-package' to /tmp dir:"
+  echo "  $ dodo -w /app -v /tmp:/app node:latest npm install some-package --save"
 }
 
 function show_version {
   echo "$VERSION"
-  exit 0
 }
 
 function _error_log {
@@ -71,21 +81,12 @@ function get_current_image {
 }
 
 function run {
-  local SHORT=e:p:v:w:u:hV
-  local LONG=env:,publish:,volume:,workdir:,user:,help,version
-  local OPTS=$(getopt -o $SHORT -l $LONG --name "dodo" -- "$@")
-
-  if [[ $? != 0 ]]; then
-    _fatal "failed to parse options"
-  fi
-
-  eval set -- "$OPTS"
-
   ENV_ARGS=""
   PORT_ARGS=""
   VOLUME_ARGS=""
   WORKDIR_VALUE="/home/dodo"
   USER_VALUE="$(id -u):$(id -g)"
+  IMAGE=""
 
   _debug_log "parse arguments"
 
@@ -94,11 +95,13 @@ function run {
       -h | --help )
         _debug_log "    show help"
         show_help
+        return 1
         shift
       ;;
       -V | --version )
         _debug_log "    show version"
         show_version
+        return 1
         shift
       ;;
       -e | --env )
@@ -132,7 +135,9 @@ function run {
         break
         ;;
       *)
-        _fatal "unrecognized option '$1'"
+        _debug_log "    done"
+        IMAGE=$(get_current_image $1); shift
+        break
         ;;
     esac
   done
@@ -140,8 +145,7 @@ function run {
   VOLUME_ARGS="$VOLUME_ARGS -v $CWD:$WORKDIR_VALUE"
   local CLI_ARGS="$ENV_ARGS $PORT_ARGS $VOLUME_ARGS -w $WORKDIR_VALUE -u $USER_VALUE"
 
-  local image=$(get_current_image $1); shift
-  exec docker run --rm -it $CLI_ARGS $image $@
+  exec docker run --rm -it $CLI_ARGS $IMAGE $@
 }
 
 if [[ "$DODO_TEST" != "true" ]]; then
