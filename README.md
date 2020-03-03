@@ -26,10 +26,6 @@ Just copy `dodo.sh` to your `$PATH` and make it executable.
 * `<image>`: can be specific image (e.g. `alpine` or `alpine:latest`), path to directory with Dockerfile (e.g. `./deploy/docker`, always should start with `./`) or path to specific Dockerfile (e.g. `./tests/Dockerfile.testing`);
 * `<command>`: some command to run in container, e.g. `npm install`
 
-## Limitations
-
-DoDo requires GNU getopt. On non-GNU systems, you have to install this separately.
-
 ## License
 
 [MIT](LICENSE)
