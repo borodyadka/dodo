@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 
 CWD=$(pwd)
-VERSION=1.0.1
+VERSION=1.0.2
 
 function show_help {
   echo "DoDo $VERSION"
@@ -69,20 +69,23 @@ function get_current_image {
 
       echo "$image"
       return
-    else
-      _fatal "unable to find Dockerfile in '${BASH_REMATCH[1]}'"
     fi
-  elif [[ "$value" =~ ^([^\.][^/]+)$ ]]; then
+
+    _debug_log "    unable to find Dockerfile in '${BASH_REMATCH[1]}'"
+  fi
+
+  # try to find pattern `[namespace/]image[:tag]`
+  if [[ "$value" =~ ^([a-zA-Z0-9\._-]+\/)?([a-zA-Z0-9\._-]+)(:[a-zA-Z0-9\._-]+)?$ ]]; then
     _debug_log "    specified image $value"
-    echo ${BASH_REMATCH[1]}
+    echo "${BASH_REMATCH[0]}"
     return
   fi
-  _fatal "no image or Dockerfile specified"
 }
 
 function run {
   ENV_ARGS=""
   PORT_ARGS=""
+  NETWORK_VALUE=""
   VOLUME_ARGS=""
   WORKDIR_VALUE="/home/dodo"
   USER_VALUE="$(id -u):$(id -g)"
@@ -129,6 +132,11 @@ function run {
         USER_VALUE="$2"
         shift 2
         ;;
+      -n | --network )
+        _debug_log "    network: $2"
+        NETWORK_VALUE="--network $2"
+        shift 2
+        ;;
       -- )
         _debug_log "    done"
         shift
@@ -142,12 +150,16 @@ function run {
     esac
   done
 
+  if [[ "$IMAGE" == "" ]]; then
+    _fatal "no image or Dockerfile specified"
+  fi
+
   VOLUME_ARGS="$VOLUME_ARGS -v $CWD:$WORKDIR_VALUE"
-  local CLI_ARGS="$ENV_ARGS $PORT_ARGS $VOLUME_ARGS -w $WORKDIR_VALUE -u $USER_VALUE"
+  local CLI_ARGS="$ENV_ARGS $PORT_ARGS $VOLUME_ARGS -w $WORKDIR_VALUE -u $USER_VALUE $NETWORK_VALUE"
 
   exec docker run --rm -it $CLI_ARGS $IMAGE $@
 }
 
-if [[ "$DODO_TEST" != "true" ]]; then
+if [[ "$DODO_TEST" == "" ]]; then
   run $@
 fi
